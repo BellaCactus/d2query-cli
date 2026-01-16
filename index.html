@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>d2query • pocketwiki</title>
+  <style>
+    :root{
+      --bg:#070707; --bg2:#0b0b0b;
+      --panel: rgba(255,255,255,0.055);
+      --panel2: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.12);
+      --text:#f7f7f7; --muted:#b9b9c2;
+      --pink:#ff78c8; --pink2:#ffb3e6;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:radial-gradient(900px 700px at 15% 20%, rgba(255,120,200,0.10), transparent 50%), var(--bg); color:var(--text); }
+    .wrap{ max-width:1100px; margin:0 auto; padding:24px; }
+    .top{ background:linear-gradient(180deg, var(--panel), var(--panel2)); border:1px solid var(--border); border-radius:16px; padding:16px; }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .brand{ display:flex; flex-direction:column; gap:4px; }
+    .brand h1{ margin:0; font-size:18px; letter-spacing:0.5px; }
+    .brand .muted{ color:var(--muted); font-size:12px; }
+    .pill{ padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(0,0,0,0.25); color:var(--muted); font-size:12px; }
+    .search{ margin-top:14px; display:flex; gap:10px; }
+    input{
+      flex:1; padding:12px 12px; border-radius:12px; border:1px solid var(--border);
+      background:rgba(0,0,0,0.35); color:var(--text); outline:none;
+    }
+    input:focus{ border-color: rgba(255,120,200,0.45); box-shadow: 0 0 0 3px rgba(255,120,200,0.12); }
+    button{
+      padding:12px 14px; border-radius:12px; border:1px solid rgba(255,120,200,0.35);
+      background:rgba(255,120,200,0.12); color:var(--pink2); cursor:pointer;
+    }
+    button:hover{ background:rgba(255,120,200,0.18); }
+    .grid{ display.grid; }
+    .main{ display:grid; grid-template-columns: 1.4fr 0.8fr; gap:14px; margin-top:14px; }
+    @media (max-width: 920px){ .main{ grid-template-columns: 1fr; } }
+    .card{ background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025)); border:1px solid var(--border); border-radius:16px; padding:14px; }
+    .card h2{ margin:0 0 10px; font-size:14px; color:var(--pink2); }
+    .result{ padding:12px; border-radius:14px; border:1px solid rgba(255,255,255,0.10); background:rgba(0,0,0,0.25); margin:10px 0; }
+    .result .name{ color:var(--pink2); font-weight:700; }
+    .result .meta{ color:var(--muted); font-size:12px; margin-top:4px; }
+    .result pre{ margin:10px 0 0; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,0.10); background:rgba(0,0,0,0.35); overflow:auto; }
+    .muted{ color:var(--muted); }
+    .mini{ font-size:12px; }
+    .favbtn{ float:right; font-size:12px; padding:6px 10px; border-radius:999px; }
+    .hr{ height:1px; background:rgba(255,255,255,0.08); margin:10px 0; }
+    a{ color:var(--pink2); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="row" style="justify-content:space-between">
+        <div class="brand">
+          <h1>d2query • pocketwiki</h1>
+          <div class="muted">offline dataset • favorites saved locally • no backend</div>
+        </div>
+        <div class="row">
+          <span class="pill" id="status">loading dataset…</span>
+          <span class="pill" id="count">0 entries</span>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="q" placeholder="search… (try: threaded, grapple, rift)" autocomplete="off" />
+        <button id="go">search</button>
+      </div>
+      <div class="muted mini" style="margin-top:10px">tip: press <code>enter</code> to search, <code>/</code> to focus the box.</div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <h2>results</h2>
+        <div class="muted mini" id="hint">type something and hit search.</div>
+        <div id="results"></div>
+      </div>
+
+      <div class="card">
+        <h2>favorites</h2>
+        <div class="muted mini">saved in <code>localStorage</code> on this device.</div>
+        <div class="hr"></div>
+        <div id="favs"></div>
+        <div class="hr"></div>
+        <button id="clear">clear favorites</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $('status');
+  const countEl = $('count');
+  const qEl = $('q');
+  const resEl = $('results');
+  const favsEl = $('favs');
+  const hintEl = $('hint');
+
+  const LS_KEY = 'd2q:favs:v1';
+  let DATA = [];
+
+  const norm = (s) => (s || '').toLowerCase().replace(/\s+/g,' ').trim();
+
+  function loadFavs(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+    catch{ return []; }
+  }
+
+  function saveFavs(list){
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  }
+
+  function renderFavs(){
+    const favs = loadFavs();
+    if(!favs.length){
+      favsEl.innerHTML = '<div class="muted mini">(none yet)</div>';
+      return;
+    }
+    favsEl.innerHTML = favs.map(f => {
+      const name = escapeHtml(f.name);
+      const meta = escapeHtml(`${f.class} • ${f.subclass}`);
+      return `<div class="result">
+        <div class="name">${name}</div>
+        <div class="meta">${meta}</div>
+        <button class="favbtn" data-unfav="${name}">remove</button>
+      </div>`;
+    }).join('');
+
+    favsEl.querySelectorAll('[data-unfav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.getAttribute('data-unfav');
+        const next = loadFavs().filter(x => x.name !== name);
+        saveFavs(next);
+        renderFavs();
+      });
+    });
+  }
+
+  function score(item, q){
+    const hay = norm(`${item.name} ${item.class} ${item.subclass} ${item.text}`);
+    if(!q) return 0;
+    let s = 0;
+    if(hay.includes(q)) s += 1.0;
+    // tiny fuzzy: count of query tokens present
+    const toks = q.split(' ').filter(Boolean);
+    const hit = toks.reduce((acc,t) => acc + (hay.includes(t) ? 1 : 0), 0);
+    s += hit / Math.max(1, toks.length);
+    // slight bias toward name matches
+    if(norm(item.name).includes(q)) s += 0.75;
+    return s;
+  }
+
+  function escapeHtml(str){
+    return (str || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderResults(list, q){
+    if(!q){
+      resEl.innerHTML = '';
+      hintEl.textContent = 'type something and hit search.';
+      return;
+    }
+
+    hintEl.textContent = `showing top ${list.length} matches for “${q}”`;
+    resEl.innerHTML = list.map(r => {
+      const item = r.item;
+      const name = escapeHtml(item.name);
+      const meta = escapeHtml(`${item.class} • ${item.subclass}`);
+      const text = escapeHtml((item.text || '').trim());
+      return `<div class="result">
+        <button class="favbtn" data-fav="${name}">fav</button>
+        <div class="name">${name}</div>
+        <div class="meta">${meta} • <span class="muted">score ${r.score.toFixed(3)}</span></div>
+        <pre><code>${text}</code></pre>
+      </div>`;
+    }).join('');
+
+    resEl.querySelectorAll('[data-fav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.getAttribute('data-fav');
+        const item = DATA.find(x => x.name === name);
+        if(!item) return;
+        const favs = loadFavs();
+        if(!favs.some(x => x.name === item.name)){
+          favs.unshift({ name: item.name, class: item.class, subclass: item.subclass });
+          saveFavs(favs.slice(0, 80));
+          renderFavs();
+        }
+      });
+    });
+  }
+
+  function searchNow(){
+    const q = norm(qEl.value);
+    if(!q){ renderResults([], ''); return; }
+
+    const scored = DATA.map(item => ({ item, score: score(item, q) }))
+      .filter(x => x.score > 0)
+      .sort((a,b) => b.score - a.score)
+      .slice(0, 12);
+
+    renderResults(scored, q);
+  }
+
+  async function load(){
+    try{
+      const res = await fetch('data/abilities.json', { cache: 'no-store' });
+      DATA = await res.json();
+      statusEl.textContent = 'dataset ready';
+      countEl.textContent = `${DATA.length} entries`;
+    }catch(e){
+      statusEl.textContent = 'dataset failed';
+      statusEl.style.borderColor = 'rgba(255,120,200,0.55)';
+      hintEl.textContent = 'could not load data/abilities.json';
+      console.error(e);
+    }
+
+    renderFavs();
+  }
+
+  $('go').addEventListener('click', searchNow);
+  qEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') searchNow();
+  });
+  $('clear').addEventListener('click', () => {
+    saveFavs([]);
+    renderFavs();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if(e.key === '/' && document.activeElement !== qEl){
+      e.preventDefault();
+      qEl.focus();
+    }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
