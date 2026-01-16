@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Threaded Spike",
+    "class": "Hunter",
+    "subclass": "Strand",
+    "text": "Throw a rope dart that embeds in targets. Catching it refunds energy. (sample text, replace with real data)"
+  },
+  {
+    "name": "Grapple",
+    "class": "All",
+    "subclass": "Strand",
+    "text": "Launch a grappling hook to swing through space. (sample text)"
+  },
+  {
+    "name": "Healing Rift",
+    "class": "Warlock",
+    "subclass": "All",
+    "text": "Conjure a rift that heals allies standing inside. (sample text)"
+  }
+]
