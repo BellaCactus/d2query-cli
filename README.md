@@ -1,31 +1,69 @@
+<div align="center">
+
 # d2query-cli
 
-terminal codex search (v1).
+destiny 2 query cli: search a local dataset and print results as terminal-friendly cards (optional html output).
 
-this repo is a scaffold: it ships with a tiny sample dataset so the CLI works offline.
+![python](https://img.shields.io/badge/python-3.11%2B-0b0b0b?style=for-the-badge)
+![cli](https://img.shields.io/badge/interface-cli-ff78c8?style=for-the-badge)
+![license](https://img.shields.io/badge/license-mit-0b0b0b?style=for-the-badge)
+
+</div>
+
+---
+
+## what is this?
+
+d2query-cli is a command-line search tool for a destiny 2 mini-codex dataset.
+
+it is meant for:
+- quick ability/perk lookups
+- "what does this thing do again?" checks
+- generating a small html report for sharing
+
+note: this project does not require a backend. it is designed to be lightweight and offline-friendly.
+
+---
 
 ## install
 
+requires python 3.11+.
+
 ```bash
+python -m venv .venv
+# windows
+.venv\Scripts\activate
+# mac/linux
+source .venv/bin/activate
+
+python -m pip install -U pip
 python -m pip install -e .
 ```
 
+---
+
 ## usage
 
+search abilities:
+
 ```bash
-# search abilities
 d2q abilities "threaded" --top 5
-
-# use a custom dataset json
-d2q abilities "spike" --dataset ./data/abilities.json
-
-# write html report
-d2q abilities "threaded" --top 5 --html out.html
 ```
 
-## dataset format (v1)
-`abilities.json` is a list of objects:
+point at a dataset file:
 
-```json
-[{"name":"Threaded Spike","class":"Hunter","subclass":"Strand","text":"..."}]
+```bash
+d2q abilities "spike" --dataset data/abilities.json --top 10
 ```
+
+write html output:
+
+```bash
+d2q abilities "threaded spike" --class hunter --subclass strand --top 5 --html out.html
+```
+
+---
+
+## license
+
+MIT. see `LICENSE`.
